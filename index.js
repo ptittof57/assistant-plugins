@@ -32,6 +32,13 @@ exports.start = function(dirname) {
       }
     });
   }
+  
+  function execute(command) {
+   const exec = require('child_process').exec
+   exec(command, (err, stdout, stderr) => {
+    process.stdout.write(stdout)
+   })
+  }
 
   function timestamp() {
     var now = new Date();
@@ -105,19 +112,30 @@ exports.start = function(dirname) {
             } else {
               response.pushes.forEach(function(push) {
                 if (push.sender_name === "IFTTT" && push.title === "Assistant" && !push.dismissed) {
+                  
+                  
                   var commandes = push.body.split("|");
                   console.log("[assistant] ("+timestamp()+") Commande reçue: ",commandes);
+                  
                   PromiseChain(commandes, function(commande) {
                     // on regarde le keyword et on transmet au plug associé
-                    var plugin = commande.split("_")[0];
+                    var plugin = commande.split("_")[0];        
                     if (!plugins[plugin]) {
                       console.log("[assistant] ("+timestamp()+") Erreur : la commande « "+commande+" » a été reçue, cependant le plugin '"+plugin+"' n'a pas été chargé !");
                     } else {
                       console.log("[assistant] ("+timestamp()+") Appel du plugin '"+plugin+"'");
                       return plugins[plugin].action(commande.split("_").slice(1).join("_"));
-                    }
-                  })
+                    }             
+                  })        
                 }
+                else if (push.sender_name === "IFTTT" && push.title === "Twitch" && !push.dismissed)
+                {
+                  // Le contenu du body est du genre : "lance (nom du streameur) sur alors on retire le texte superflu
+                  var streameur = push.body.replace(/^lance /,"").replace(" sur","").toLowerCase().replace(/\s(\d)/g,"$1");
+                  console.log("[twitch] ("+timestamp()+") Commande reçue: "+streameur);
+	                var commandToExecute = 'livestreamer twitch.tv/' + streameur + ' best --http-header=Client-ID='+ configuration.main.twitch_token + ' --player-passthrough=https,hls,rtmp --player "node /home/pi/Documents/castnow/node_modules/castnow/index.js"';
+                  execute(commandToExecute);
+                } 
               })
             }
           })
